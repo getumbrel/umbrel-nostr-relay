@@ -1,0 +1,21 @@
+version: "3.7"
+
+services:
+  server:
+    image: lnmarkets/nostr-rs-relay:0.7.16@sha256:3e5f0dbb3d45c701fbe06b7d2deadf6694f3231ec2d79a9bc1932ca80d153a9f
+    user: "1000:1000"
+    entrypoint: "/bin/bash"
+    command: -c '/home/.nostr-rs-relay/nostr-rs-relay --db /data/db | tee /data/logs/stdout.log'
+    restart: on-failure
+    volumes:
+      - ${PWD}/data/logs:/data/logs
+      - ${PWD}/data/db:/data/db
+    ports:
+      - 4848:8080
+
+  web:
+    build: .
+    user: "1000:1000"
+    restart: on-failure
+    ports:
+      - 8080:3000

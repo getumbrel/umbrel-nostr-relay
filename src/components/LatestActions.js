@@ -42,7 +42,7 @@ export default function LatestActions({
               <span
                 className={`absolute z-[1] ${index === 0 ? "top-4" : "top-0"} ${
                   index === 9 ? "bottom-4" : "bottom-0"
-                } left-[3.33rem] w-px bg-slate-200 dark:bg-slate-100/10`}
+                } left-[3.33rem] w-px bg-slate-200 dark:bg-slate-700`}
               />
             </li>
           );
@@ -82,9 +82,11 @@ export default function LatestActions({
                 ) : null}
               </div>
               <span
-                className={`absolute z-[1] ${index === 0 ? "top-4" : "top-0"} ${
-                  index === eventsToRender.length - 1 ? "bottom-4" : "bottom-0"
-                } left-[3.33rem] w-px h-full bg-slate-200 dark:bg-slate-100/10`}
+                className={`absolute z-[1] ${index === 0 ? "top-4" : "top-0"} 
+                ${eventsToRender.length === 1 ? "hidden" : ""}
+                ${
+                  index === eventsToRender.length - 1 ? "top-[-2rem]" : ""
+                } bottom-0 left-[3.33rem] w-px h-full bg-slate-200 dark:bg-slate-700`}
               />
             </li>
           );

@@ -76,7 +76,9 @@ export default function TotalBackups({ loading, events, supportedEventKinds }) {
         </span>{" "}
         {totalEvents === 1 ? "action" : "actions"}
       </p>
-      <hr className="opacity-90 mx-10 px-6 mt-4 dark:opacity-10" />
+      {totalEvents ? (
+        <hr className="opacity-90 mx-10 px-6 mt-4 dark:opacity-10" />
+      ) : null}
       <div className="">
         <ul className="overflow-y-auto max-h-[18.5rem] pt-5 px-10 md:px-6 lg:px-10">
           {eventsBreakdown.map(({ kind, total }) => {

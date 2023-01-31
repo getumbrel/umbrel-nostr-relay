@@ -10,12 +10,15 @@ services:
     volumes:
       - ${PWD}/data/logs:/data/logs
       - ${PWD}/data/db:/data/db
-    ports:
-      - 4848:8080
 
   web:
     build: .
     user: "1000:1000"
     restart: on-failure
+
+  caddy:
+    image: caddy:2.3.0-alpine
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
     ports:
-      - 8080:3000
+      - 8080:8080

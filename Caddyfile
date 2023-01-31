@@ -1,0 +1,13 @@
+http://localhost:8080 {
+	@websockets {
+		header Connection *Upgrade*
+		header Upgrade    websocket
+	}
+	reverse_proxy @websockets server:8080
+
+	reverse_proxy * web:3000
+
+	log {
+		output stdout
+	}
+}

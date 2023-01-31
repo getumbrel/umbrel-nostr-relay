@@ -79,7 +79,7 @@ const supportedEventKinds = {
 // Total events we want to render in the activity list
 const eventsToRenderLimit = 300;
 
-const relayPort = "4848";
+const relayPort = window.location.port;
 
 export default function App() {
   // State to store events from websocket
@@ -90,7 +90,8 @@ export default function App() {
   const [hasFetchedAllEvents, setHasFetchedAllEvents] = useState(false);
 
   // URL of the websocket relay
-  const relayUrl = `ws://${window.location.hostname}:${relayPort}`;
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const relayUrl = `${protocol}//${window.location.hostname}:${relayPort}`;
 
   useEffect(() => {
     // Create websocket connection

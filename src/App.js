@@ -47,7 +47,7 @@ const supportedEventKinds = {
   },
   40: {
     icon: "🪄",
-    name: "Channel Creations",
+    name: "Channel Creation",
     showContent: true,
     contentKey: "name",
   },
@@ -73,6 +73,10 @@ const supportedEventKinds = {
   22242: {
     icon: "🔓",
     name: "Authenticated Relay",
+  },
+  other: {
+    icon: "🛠",
+    name: "Other Action",
   },
 };
 

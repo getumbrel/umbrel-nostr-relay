@@ -8,17 +8,11 @@ export default function TotalBackups({ loading, events, supportedEventKinds }) {
   if (!loading) {
     const counts = {};
     events.forEach((event) => {
-      if (supportedEventKinds[event.kind]) {
-        if (!counts[event.kind]) {
-          counts[event.kind] = { kind: event.kind, total: 0 };
-        }
-        counts[event.kind].total += 1;
-      } else {
-        if (!counts["other"]) {
-          counts["other"] = { kind: "other", total: 0 };
-        }
-        counts["other"].total += 1;
+      const kind = event.kind in supportedEventKinds ? event.kind : "other";
+      if (!counts[kind]) {
+        counts[kind] = { kind: kind, total: 0 };
       }
+      counts[kind].total += 1;
     });
     eventsBreakdown = Object.entries(counts)
       .map(([, value]) => value)
@@ -86,15 +80,13 @@ export default function TotalBackups({ loading, events, supportedEventKinds }) {
               <li key={kind} className="flex pb-5">
                 <div className="">
                   <span className="flex items-center justify-center w-7 h-7 text-sm rounded-md bg-white shadow-sm ring-1 ring-slate-900/5 dark:bg-slate-700 dark:ring-0 dark:shadow-none dark:highlight-white/5">
-                    {kind === "other" ? "🛠" : supportedEventKinds[kind]["icon"]}
+                    {supportedEventKinds[kind]["icon"]}
                   </span>
                 </div>
                 <div className="ml-2 w-full flex flex-col justify-between">
                   <div className="flex justify-between">
                     <span className="text-slate-700 dark:text-slate-300 text-sm">
-                      {kind === "other"
-                        ? "Other Actions"
-                        : `${supportedEventKinds[kind]["name"]}s`}
+                      {`${supportedEventKinds[kind]["name"]}s`}
                     </span>
                     <span className="text-slate-700 dark:text-slate-300 text-sm">
                       {total}

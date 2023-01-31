@@ -17,7 +17,7 @@ services:
     restart: on-failure
 
   caddy:
-    image: caddy:2.3.0-alpine
+    image: caddy:2.6.2@sha256:16f4d944907ac8adc93e11df3e4d1b8405d42e4f45e6bc1aae4eb1119552ee79
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
     ports:

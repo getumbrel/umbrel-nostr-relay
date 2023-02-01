@@ -2,9 +2,9 @@ export default function ConnectClientCard({ relayPort }) {
   return (
     <div className="pt-5 px-10 pb-8">
       <p className="text-slate-700 dark:text-slate-300 leading-relaxed mb-3">
-        Connect your Nostr clients to your relay to ensure all your Nostr
-        activity, including your posts, are backed up and accessible even if you
-        are censored by other relays.
+        Connect your Nostr clients to your private relay to ensure all your
+        Nostr activity, including your posts, are backed up and accessible even
+        if you are censored by other public relays.
       </p>
       <div className="my-4" />
       <p className="text-slate-700 dark:text-slate-300 leading-relaxed mb-3">
@@ -38,7 +38,7 @@ export default function ConnectClientCard({ relayPort }) {
         <span className="font-mono underline decoration-dashed underline-offset-4">
           ws://umbrel:{relayPort}
         </span>{" "}
-        as your Relay URL.
+        as your Relay.
       </p>
     </div>
   );

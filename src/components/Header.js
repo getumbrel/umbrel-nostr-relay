@@ -104,11 +104,11 @@ export default function Header({ isConnected, children }) {
               )}
             </div>
             <h1 className="text-3xl sm:text-4xl font-medium text-slate-900 dark:text-white opacity-90">
-              Nostr Backup Relay
+              Nostr Relay
             </h1>
             <div className="mt-2">
-              <span className="text-slate-700 dark:text-white opacity-50 font-medium">
-                0.4.2
+              <span className="text-black/50 dark:text-white/50 font-medium">
+                Private Relay
               </span>
             </div>
           </div>

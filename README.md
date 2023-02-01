@@ -2,7 +2,7 @@
   <a href="https://umbrel.com">
     <img src="https://i.imgur.com/q9DFpEz.jpg" alt="Logo">
   </a>
-  <h1 align="center">Nostr Backup Relay for Umbrel</h1>
+  <h1 align="center">Nostr Relay for Umbrel</h1>
   <p align="center">
     Run your private Nostr relay to backup all your activity. An official app by Umbrel. Powered by nostr-rs-relay.
     <br />

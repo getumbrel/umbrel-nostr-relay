@@ -187,7 +187,7 @@ export default function App() {
 
             <Card
               className="col-1 md:col-span-2 xl:col-span-1"
-              heading="Total backups"
+              heading="Total actions"
             >
               <TotalBackups
                 loading={!hasFetchedAllEvents}

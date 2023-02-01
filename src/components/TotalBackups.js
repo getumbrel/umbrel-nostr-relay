@@ -1,3 +1,12 @@
+import {
+  motion,
+  animate,
+  useMotionValue,
+  useTransform,
+  LayoutGroup,
+} from "framer-motion";
+import { useEffect } from "react";
+
 export default function TotalBackups({ loading, events, supportedEventKinds }) {
   let eventsBreakdown = [];
   // Construce the breakdown of event kinds and their total occurences in
@@ -18,6 +27,23 @@ export default function TotalBackups({ loading, events, supportedEventKinds }) {
       .map(([, value]) => value)
       .sort((a, b) => b.total - a.total);
   }
+
+  const totalEvents = events.length;
+
+  const totalEventsAnimatedCount = useMotionValue(totalEvents);
+  const totalEventsAnimatedCountRounded = useTransform(
+    totalEventsAnimatedCount,
+    (latestValue) => Math.round(latestValue),
+  );
+
+  // animate total count after loading
+  // and on every new event
+  useEffect(() => {
+    if (!loading) {
+      const controls = animate(totalEventsAnimatedCount, totalEvents);
+      return controls.stop;
+    }
+  }, [totalEvents, loading]);
 
   if (loading) {
     return (
@@ -60,48 +86,63 @@ export default function TotalBackups({ loading, events, supportedEventKinds }) {
     );
   }
 
-  const totalEvents = events.length;
-
   return (
     <div>
       <p className="text-slate-700 px-10 dark:text-slate-300 leading-relaxed">
-        <span className="text-8xl md:text-7xl lg:text-9xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-violet-500">
-          {totalEvents > 999 ? "999+" : totalEvents}
-        </span>{" "}
-        {totalEvents === 1 ? "action" : "actions"}
+        <motion.span className="text-8xl md:text-7xl lg:text-9xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-violet-500">
+          {totalEvents > 999 ? "999+" : totalEventsAnimatedCountRounded}
+        </motion.span>{" "}
       </p>
       {totalEvents ? (
         <hr className="opacity-90 mx-10 px-6 mt-4 dark:opacity-10" />
       ) : null}
       <div className="">
         <ul className="overflow-y-auto max-h-[18.5rem] pt-5 px-10 md:px-6 lg:px-10">
-          {eventsBreakdown.map(({ kind, total }) => {
-            return (
-              <li key={kind} className="flex pb-5">
-                <div className="">
-                  <span className="flex items-center justify-center w-7 h-7 text-sm rounded-md bg-white shadow-sm ring-1 ring-slate-900/5 dark:bg-slate-700 dark:ring-0 dark:shadow-none dark:highlight-white/5">
-                    {supportedEventKinds[kind]["icon"]}
-                  </span>
-                </div>
-                <div className="ml-2 w-full flex flex-col justify-between">
-                  <div className="flex justify-between">
-                    <span className="text-slate-700 dark:text-slate-300 text-sm">
-                      {`${supportedEventKinds[kind]["name"]}s`}
-                    </span>
-                    <span className="text-slate-700 dark:text-slate-300 text-sm">
-                      {total}
+          <LayoutGroup>
+            {eventsBreakdown.map(({ kind, total }) => {
+              return (
+                <motion.li
+                  initial={{
+                    scale: 0.2,
+                    opacity: 0,
+                  }}
+                  animate={{
+                    scale: 1,
+                    opacity: 1,
+                  }}
+                  exit={{
+                    scale: 0,
+                    opacity: 0,
+                  }}
+                  layout
+                  key={kind}
+                  className="flex pb-5"
+                >
+                  <div className="">
+                    <span className="flex items-center justify-center w-7 h-7 text-sm rounded-md bg-white shadow-sm ring-1 ring-slate-900/5 dark:bg-slate-700 dark:ring-0 dark:shadow-none dark:highlight-white/5">
+                      {supportedEventKinds[kind]["icon"]}
                     </span>
                   </div>
-                  <div
-                    style={{
-                      width: `${(total * 100) / totalEvents}%`,
-                    }}
-                    className="h-1 rounded-full bg-gradient-to-r from-pink-500 to-violet-500"
-                  ></div>
-                </div>
-              </li>
-            );
-          })}
+                  <div className="ml-2 w-full flex flex-col justify-between">
+                    <div className="flex justify-between">
+                      <span className="text-slate-700 dark:text-slate-300 text-sm">
+                        {`${supportedEventKinds[kind]["name"]}s`}
+                      </span>
+                      <span className="text-slate-700 dark:text-slate-300 text-sm">
+                        {total}
+                      </span>
+                    </div>
+                    <motion.div
+                      animate={{
+                        width: `${(total * 100) / totalEvents}%`,
+                      }}
+                      className="h-1 rounded-full bg-gradient-to-r from-pink-500 to-violet-500"
+                    ></motion.div>
+                  </div>
+                </motion.li>
+              );
+            })}
+          </LayoutGroup>
         </ul>
       </div>
     </div>

@@ -58,7 +58,7 @@ const supportedEventKinds = {
     contentKey: "name",
   },
   42: {
-    icon: "✉️",
+    icon: "📢",
     name: "Channel Message",
     showContent: true,
   },

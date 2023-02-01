@@ -94,7 +94,7 @@ export default function LatestActions({
                     <div className="bg-slate-50 dark:bg-white/5 p-2 rounded shadow-sm ring-1 ring-slate-900/5 dark:ring-slate-700">
                       <p className="text-slate-700 dark:text-slate-300 text-sm text-ellipsis overflow-hidden">
                         {eventKind.contentKey
-                          ? content[eventKind.contentKey]
+                          ? JSON.parse(content)[eventKind.contentKey]
                           : content}
                       </p>
                     </div>

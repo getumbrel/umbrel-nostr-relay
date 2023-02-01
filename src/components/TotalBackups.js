@@ -88,16 +88,16 @@ export default function TotalBackups({ loading, events, supportedEventKinds }) {
 
   return (
     <div>
-      <p className="text-slate-700 px-10 dark:text-slate-300 leading-relaxed">
+      <p className="text-slate-700 px-10 dark:text-slate-300 leading-relaxed mt-2">
         <motion.span className="text-8xl md:text-7xl lg:text-9xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-violet-500">
           {totalEvents > 999 ? "999+" : totalEventsAnimatedCountRounded}
         </motion.span>{" "}
       </p>
       {totalEvents ? (
-        <hr className="opacity-90 mx-10 px-6 mt-4 dark:opacity-10" />
+        <hr className="opacity-90 mx-10 px-6 mt-3 mb-1 dark:opacity-10" />
       ) : null}
       <div className="">
-        <ul className="overflow-y-auto max-h-[18.5rem] pt-5 px-10 md:px-6 lg:px-10">
+        <ul className="overflow-y-auto max-h-[19.2rem] pt-5 px-10 md:px-6 lg:px-10">
           <LayoutGroup>
             {eventsBreakdown.map(({ kind, total }) => {
               return (

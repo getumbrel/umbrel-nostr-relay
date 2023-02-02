@@ -3,8 +3,13 @@ http://localhost:8080 {
 		header Connection *Upgrade*
 		header Upgrade    websocket
 	}
-	reverse_proxy @websockets server:8080
 
+	@nostr {
+		header Accept application/nostr+json
+	}
+	
+	reverse_proxy @websockets server:8080
+	reverse_proxy @nostr server:8080
 	reverse_proxy * web:3000
 
 	log {

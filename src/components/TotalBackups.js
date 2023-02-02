@@ -126,7 +126,9 @@ export default function TotalBackups({ loading, events, supportedEventKinds }) {
                   <div className="ml-2 w-full flex flex-col justify-between">
                     <div className="flex justify-between">
                       <span className="text-slate-700 dark:text-slate-300 text-sm">
-                        {`${supportedEventKinds[kind]["name"]}s`}
+                        {`${supportedEventKinds[kind]["name"]}${
+                          total > 1 ? "s" : ""
+                        }`}
                       </span>
                       <span className="text-slate-700 dark:text-slate-300 text-sm">
                         {total}

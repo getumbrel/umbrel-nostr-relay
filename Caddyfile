@@ -1,4 +1,4 @@
-http://localhost:8080 {
+:8080 {
 	@websockets {
 		header Connection *Upgrade*
 		header Upgrade    websocket

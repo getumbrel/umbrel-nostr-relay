@@ -3,8 +3,20 @@ import { useState } from "react";
 export default function CopyText({ value }) {
   const [isCopied, setIsCopied] = useState(false);
 
-  function copyText() {
-    navigator.clipboard.writeText(value);
+  async function copyText() {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(value);
+    } else {
+      let textArea = document.createElement("textarea");
+      textArea.value = value;
+      textArea.style.position = "absolute";
+      textArea.style.opacity = 0;
+      document.body.appendChild(textArea);
+      textArea.select();
+      await document.execCommand("copy");
+      textArea.remove();
+    }
+
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 1000);
   }

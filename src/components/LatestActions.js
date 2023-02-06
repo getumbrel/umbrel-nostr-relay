@@ -25,7 +25,7 @@ export default function LatestActions({
 
   if (loading) {
     return (
-      <ul className="overflow-y-auto overflow-x-hidden max-h-[28.8rem] pt-2">
+      <ul className="overflow-y-auto overflow-x-hidden max-h-[28.8rem] pt-2 !scrollbar-thin !scrollbar-w-1 !scrollbar-thumb-rounded-full !scrollbar-track-transparent !scrollbar-thumb-black/10 dark:!scrollbar-thumb-white/10 mx-[0.15rem]">
         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((item, index) => {
           return (
             <li key={item} className="relative px-10 py-3">
@@ -55,7 +55,7 @@ export default function LatestActions({
 
   if (eventsToRender.length) {
     return (
-      <ul className="overflow-y-auto overflow-x-hidden max-h-[28.8rem] pt-2">
+      <ul className="overflow-y-auto overflow-x-hidden max-h-[28.8rem] pt-2 !scrollbar-thin !scrollbar-w-1 !scrollbar-thumb-rounded-full !scrollbar-track-transparent !scrollbar-thumb-black/10 dark:!scrollbar-thumb-white/10 mx-[0.15rem]">
         <LayoutGroup>
           {eventsToRender.map(({ id, kind, created_at, content }, index) => {
             const eventKind = supportedEventKinds[kind];

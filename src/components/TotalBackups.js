@@ -55,7 +55,7 @@ export default function TotalBackups({ loading, events, supportedEventKinds }) {
           </span>
         </p>
         <hr className="opacity-90 mx-10 px-6 mt-4 dark:opacity-10" />
-        <ul className="overflow-y-auto max-h-[18.5rem] pt-5 px-10 md:px-6 lg:px-10">
+        <ul className="overflow-y-auto max-h-[18.5rem] pt-5 px-10 md:px-6 lg:px-10 !scrollbar-thin !scrollbar-w-1 !scrollbar-thumb-rounded-full !scrollbar-track-transparent !scrollbar-thumb-black/10 dark:!scrollbar-thumb-white/10 mx-[0.15rem]">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
             return (
               <li key={num} className="flex pb-5">
@@ -97,7 +97,7 @@ export default function TotalBackups({ loading, events, supportedEventKinds }) {
         <hr className="opacity-90 mx-10 px-6 mt-3 mb-1 dark:opacity-10" />
       ) : null}
       <div className="">
-        <ul className="overflow-y-auto max-h-[19.2rem] pt-5 px-10 md:px-6 lg:px-10">
+        <ul className="overflow-y-auto max-h-[19.2rem] pt-5 px-10 md:px-6 lg:px-10 !scrollbar-thin !scrollbar-w-1 !scrollbar-thumb-rounded-full !scrollbar-track-transparent !scrollbar-thumb-black/10 dark:!scrollbar-thumb-white/10 mx-[0.15rem]">
           <LayoutGroup>
             {eventsBreakdown.map(({ kind, total }) => {
               return (

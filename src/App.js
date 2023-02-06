@@ -46,13 +46,13 @@ const supportedEventKinds = {
     name: "Reaction",
   },
   40: {
-    icon: "🪄",
+    icon: "🧙‍♂️",
     name: "Channel Creation",
     showContent: true,
     contentKey: "name",
   },
   41: {
-    icon: "🤙",
+    icon: "🪄",
     name: "Channel Update",
     showContent: true,
     contentKey: "name",
@@ -85,6 +85,14 @@ const eventsToRenderLimit = 300;
 
 const relayPort = window.location.port;
 
+// Websocket URL of the relay
+const webSocketProtocol =
+  window.location.protocol === "https:" ? "wss:" : "ws:";
+const webSocketRelayUrl = `${webSocketProtocol}//${window.location.hostname}:${relayPort}`;
+
+// HTTP URL of the relay
+const HttpRelayUrl = `${window.location.protocol}//${window.location.hostname}:${relayPort}`;
+
 export default function App() {
   // State to store events from websocket
   const [events, setEvents] = useState([]);
@@ -92,14 +100,12 @@ export default function App() {
   const [isConnected, setIsConnected] = useState(false);
   // State to keep track of whether all stored events have been fetched
   const [hasFetchedAllEvents, setHasFetchedAllEvents] = useState(false);
-
-  // URL of the websocket relay
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const relayUrl = `${protocol}//${window.location.hostname}:${relayPort}`;
+  // State to store the relay info as per NIP-11: https://github.com/nostr-protocol/nips/blob/master/11.md
+  const [relayInformationDocument, setRelayInformationDocument] = useState({});
 
   useEffect(() => {
     // Create websocket connection
-    const socket = new WebSocket(relayUrl);
+    const socket = new WebSocket(webSocketRelayUrl);
 
     // Generate a random subscription ID
     const subscriptionID =
@@ -153,6 +159,19 @@ export default function App() {
       setIsConnected(false);
     };
 
+    // get nostr-rs-relay version
+    fetch(HttpRelayUrl, {
+      method: "GET",
+      headers: {
+        Accept: "application/nostr+json",
+      },
+    }).then(async (response) => {
+      if (response.ok) {
+        const relayInfoDoc = await response.json();
+        setRelayInformationDocument(relayInfoDoc);
+      }
+    });
+
     // Cleanup function to run on component unmount
     return () => {
       // Check if the websocket is open
@@ -172,7 +191,7 @@ export default function App() {
             <span className="text-sm text-slate-900 dark:text-slate-50">
               Relay URL:&nbsp;&nbsp;
             </span>
-            <CopyText value={relayUrl} />
+            <CopyText value={webSocketRelayUrl} />
           </div>
         </Header>
 
@@ -210,7 +229,26 @@ export default function App() {
           </div>
         </main>
 
-        <Footer />
+        <Footer
+          leftContent={<>&copy; Umbrel 2023.</>}
+          rightContent={
+            <>
+              Powered by{" "}
+              <a
+                href="https://github.com/scsibug/nostr-rs-relay"
+                target="_blank"
+                className="underline underline-offset-2"
+                rel="noreferrer"
+              >
+                nostr-rs-relay
+                {relayInformationDocument.version
+                  ? ` ${relayInformationDocument.version}`
+                  : ""}
+              </a>
+              .
+            </>
+          }
+        />
       </div>
     </Layout>
   );

@@ -46,13 +46,13 @@ const supportedEventKinds = {
     name: "Reaction",
   },
   40: {
-    icon: "🪄",
+    icon: "🧙‍♂️",
     name: "Channel Creation",
     showContent: true,
     contentKey: "name",
   },
   41: {
-    icon: "🤙",
+    icon: "🪄",
     name: "Channel Update",
     showContent: true,
     contentKey: "name",

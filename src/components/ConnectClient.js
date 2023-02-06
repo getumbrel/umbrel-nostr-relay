@@ -4,7 +4,7 @@ export default function ConnectClientCard({ relayPort }) {
       <p className="text-slate-700 dark:text-slate-300 leading-relaxed mb-3">
         Connect your Nostr clients, such as Damus, Astral, and Amethyst, to your
         private relay for seamless backup of all your activity on Nostr. This
-        ensures that you can access your activity even if you are censored or
+        ensures that your activity is not lost even if you are censored or
         blocked by public relays.
       </p>
       <div className="my-4" />

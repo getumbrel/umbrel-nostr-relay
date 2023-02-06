@@ -1,4 +1,7 @@
-:8080 {
+:3000 {
+	root * /app/build
+	encode gzip
+
 	@websockets {
 		header Connection *Upgrade*
 		header Upgrade    websocket
@@ -8,9 +11,10 @@
 		header Accept application/nostr+json
 	}
 	
-	reverse_proxy @websockets server:8080
-	reverse_proxy @nostr server:8080
-	reverse_proxy * web:3000
+	reverse_proxy @websockets {$RELAY_HOST}:{$RELAY_PORT}
+	reverse_proxy @nostr {$RELAY_HOST}:{$RELAY_PORT}
+	
+	file_server
 
 	log {
 		output stdout

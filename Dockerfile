@@ -16,16 +16,13 @@ COPY . .
 RUN npm run build
 
 # Final image
-FROM node:18-buster-slim AS umbrel-nostr-relay
-
-# Copy built code from build stage to '/app' directory
-COPY --from=umbrel-nostr-relay-builder /app /app
+FROM caddy:2.6.2 AS umbrel-nostr-relay
 
 # Change directory to '/app' 
 WORKDIR /app
 
-# Expose the port on which the app will be running (3000 is the default that `serve` uses)
-EXPOSE 3000
+# Copy Caddy config. file
+COPY Caddyfile /etc/caddy/Caddyfile
 
-# Start the app
-CMD [ "npx", "serve", "build" ]
+# Copy built code from build stage to '/app' directory
+COPY --from=umbrel-nostr-relay-builder /app /app

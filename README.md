@@ -4,7 +4,7 @@
   </a>
   <h1 align="center">Nostr Relay for Umbrel</h1>
   <p align="center">
-    Run your private Nostr relay to backup all your activity on Nostr. An official app by Umbrel. Powered by [nostr-rs-relay](https://github.com/scsibug/nostr-rs-relay).
+    Run your private Nostr relay to backup all your activity on Nostr. An official app by Umbrel. Powered by <a href="https://github.com/scsibug/nostr-rs-relay">nostr-rs-relay</a>.
     <br />
     <a href="https://umbrel.com"><strong>umbrel.com »</strong></a>
     <br />

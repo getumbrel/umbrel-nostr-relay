@@ -1,10 +1,10 @@
 <p align="center">
   <a href="https://umbrel.com">
-    <img src="https://i.imgur.com/q9DFpEz.jpg" alt="Logo">
+    <img src="https://i.imgur.com/7Fd0HJy.jpg" alt="Logo">
   </a>
   <h1 align="center">Nostr Relay for Umbrel</h1>
   <p align="center">
-    Run your private Nostr relay to backup all your activity. An official app by Umbrel. Powered by nostr-rs-relay.
+    Run your private Nostr relay to backup all your activity on Nostr. An official app by Umbrel. Powered by [nostr-rs-relay](https://github.com/scsibug/nostr-rs-relay).
     <br />
     <a href="https://umbrel.com"><strong>umbrel.com »</strong></a>
     <br />
@@ -26,20 +26,20 @@
 
 ## Getting started
 
-This app can be installed in one click via the Umbrel App Store.
+This app can be installed in one click via the Umbrel App Store. Watch the introduction and demo video below:
+
+[![Introducing Nostr Relay on Umbrel](https://i.imgur.com/kv3QVs4.jpg)](https://www.youtube.com/watch?v=YjNa1MKvdrs "Introducing Nostr Relay on Umbrel")
+
+By running your personal Nostr Relay on your Umbrel, you can connect your Nostr clients, such as Damus, Astral, and Amethyst, to your private relay for seamless backup of all your activity on Nostr. This ensures that your activity is not lost even if you are censored or blocked by public relays.
+
+In Damus, go to Settings > Relays to add your Relay URL.
+
+> Tip: Install Tailscale on your Umbrel and your devices for an uninterrupted connection between your clients and your relay, even when you're away from your home network. Enable Tailscale's MagicDNS and use ws://umbrel:4848 as your Relay URL.
+
+Nostr Relay is powered by the open source [nostr-rs-relay](https://github.com/scsibug/nostr-rs-relay) project — a Rust implementation of Nostr relay. It currently supports the entire relay protocol, including NIP-01, NIP-02, NIP-03, NIP-05, NIP-09, NIP-11, NIP-12, NIP-15, NIP-16, NIP-20, NIP-22, NIP-26, NIP-28, and NIP-33.
 
 ---
 
-## Contributing
-
-We welcome and appreciate new contributions!
-
-If you're a developer looking to help but not sure where to begin, look for [these issues](https://github.com/getumbrel/umbrel-lightning/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) that have specifically been marked as being friendly to new contributors.
-
-If you're looking for a bigger challenge, before opening a pull request please [create an issue](https://github.com/getumbrel/umbrel-lightning/issues/new/choose) or [join our community chat](https://t.me/getumbrel) to get feedback, discuss the best way to tackle the challenge, and to ensure that there's no duplication of work.
-
----
-
-[![License](https://img.shields.io/github/license/getumbrel/umbrel-lightning?color=%235351FB)](https://github.com/getumbrel/umbrel-lightning/blob/master/LICENSE.md)
+[![License](https://img.shields.io/github/license/getumbrel/umbrel-nostr-relay?color=%235351FB)](https://github.com/getumbrel/umbrel-nostr-relay/blob/master/LICENSE.md)
 
 [umbrel.com](https://umbrel.com)

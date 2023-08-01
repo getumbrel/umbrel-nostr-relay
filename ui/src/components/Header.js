@@ -28,7 +28,12 @@ export default function Header({ isConnected, children }) {
   return (
     <div>
       <div className="flex justify-end pt-6">
-        <button onClick={toggleDarkMode}>
+        <button
+          onClick={(event) => {
+            event.stopPropagation(); // prevent event from bubbling up to the document
+            toggleDarkMode();
+          }}
+        >
           <span>
             <svg
               viewBox="0 0 24 24"

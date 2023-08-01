@@ -1,0 +1,19 @@
+{
+  "name": "relay-proxy",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "type": "module",
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-async-handler": "^1.2.0",
+    "fs-extra": "^11.1.1",
+    "nostr-tools": "^1.12.0",
+    "p-retry": "^5.1.2",
+    "websocket-polyfill": "^0.0.3"
+  }
+}

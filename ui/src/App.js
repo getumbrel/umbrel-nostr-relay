@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { usePopper } from "react-popper";
 
 import Layout from "./components/Layout";
 import Header from "./components/Header";
@@ -9,6 +10,15 @@ import CopyText from "./components/utility/CopyText";
 import ConnectClient from "./components/ConnectClient";
 import TotalBackups from "./components/TotalBackups";
 import LatestActions from "./components/LatestActions";
+import PublicRelaysModal from "./components/PublicRelaysModal";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+import {
+  PORT,
+  WEB_SOCKET_RELAY_URL, // Websocket URL of the private relay
+  HTTP_RELAY_URL, // http URL of the private relay
+} from "./constants/constants";
 
 // Event kinds that we want to render in the UI
 const supportedEventKinds = {
@@ -83,16 +93,6 @@ const supportedEventKinds = {
 // Total events we want to render in the activity list
 const eventsToRenderLimit = 300;
 
-const relayPort = window.location.port;
-
-// Websocket URL of the relay
-const webSocketProtocol =
-  window.location.protocol === "https:" ? "wss:" : "ws:";
-const webSocketRelayUrl = `${webSocketProtocol}//${window.location.hostname}:${relayPort}`;
-
-// HTTP URL of the relay
-const HttpRelayUrl = `${window.location.protocol}//${window.location.hostname}:${relayPort}`;
-
 export default function App() {
   // State to store events from websocket
   const [events, setEvents] = useState([]);
@@ -102,10 +102,35 @@ export default function App() {
   const [hasFetchedAllEvents, setHasFetchedAllEvents] = useState(false);
   // State to store the relay info as per NIP-11: https://github.com/nostr-protocol/nips/blob/master/11.md
   const [relayInformationDocument, setRelayInformationDocument] = useState({});
+  // State to track the public relays modal
+  const [showModal, setShowModal] = useState(false);
+  const [isPreventModalClose, setIsPreventModalClose] = useState(false);
+  // State to store the reference and popper elements for the public relays modal
+  const [offset, setOffset] = useState(
+    window.innerWidth > 768 ? [-170, 10] : [0, 10],
+  );
+  const [referenceElement, setReferenceElement] = useState(null);
+  const [popperElement, setPopperElement] = useState(null);
+  const { styles, attributes, update } = usePopper(
+    referenceElement,
+    popperElement,
+    {
+      placement: "bottom-start",
+      modifiers: [
+        {
+          name: "offset",
+          options: {
+            offset: offset,
+          },
+        },
+      ],
+    },
+  );
+  const updatePopper = useRef(update);
 
   useEffect(() => {
     // Create websocket connection
-    const socket = new WebSocket(webSocketRelayUrl);
+    const socket = new WebSocket(WEB_SOCKET_RELAY_URL);
 
     // Generate a random subscription ID
     const subscriptionID =
@@ -117,8 +142,8 @@ export default function App() {
       setIsConnected(true);
       // Reset events array to clear previous events
       setEvents([]);
-      // Request latest 100 events
-      socket.send(JSON.stringify(["REQ", subscriptionID, { limit: 1000 }]));
+      // Request latest 3000 events
+      socket.send(JSON.stringify(["REQ", subscriptionID, { limit: 3000 }]));
     };
 
     // Handle websocket message event
@@ -160,7 +185,7 @@ export default function App() {
     };
 
     // get nostr-rs-relay version
-    fetch(HttpRelayUrl, {
+    fetch(HTTP_RELAY_URL, {
       method: "GET",
       headers: {
         Accept: "application/nostr+json",
@@ -183,15 +208,55 @@ export default function App() {
     };
   }, []);
 
+  // Update popper offset for the public relays modal when the window is resized
+  useEffect(() => {
+    const handleResize = () => {
+      setOffset(window.innerWidth > 768 ? [-150, 10] : [0, 10]);
+      updatePopper.current?.();
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
   return (
     <Layout>
+      <ToastContainer
+        position="bottom-center"
+        autoClose={8000} // close toast after 8 seconds
+        hideProgressBar={true}
+        closeOnClick={false}
+        pauseOnFocusLoss={false}
+        draggable={false}
+        pauseOnHover={false}
+        closeButton={false}
+      />
       <div className="container mx-auto px-4 pb-10">
         <Header isConnected={isConnected}>
-          <div className="relay-url-container flex self-center after:bg-white dark:after:bg-slate-900 p-3 rounded-md after:rounded-md">
-            <span className="text-sm text-slate-900 dark:text-slate-50">
-              Relay URL:&nbsp;&nbsp;
-            </span>
-            <CopyText value={webSocketRelayUrl} />
+          <div className="flex">
+            <button
+              ref={setReferenceElement}
+              onClick={(event) => {
+                event.stopPropagation();
+                setShowModal((prevState) => !prevState); // toggles the current state of showModal
+              }}
+              className={`self-center p-3 m-1 rounded-md bg-white ring-1 ring-gray-900/5 dark:ring-white/10 hover:bg-[#CEC8F4] dark:hover:bg-[#264D96] ${
+                showModal
+                  ? "bg-[#CEC8F4] dark:bg-[#264D96] ring-violet-400 dark:ring-white/30"
+                  : "dark:bg-slate-900"
+              }`}
+            >
+              <div className="w-5 h-5 bg-relays-modal-icon-light-mode dark:bg-relays-modal-icon-dark-mode bg-no-repeat bg-center"></div>
+            </button>
+            <div className="relay-url-container flex self-center after:bg-white dark:after:bg-slate-900 p-3 rounded-md after:rounded-md">
+              <span className="text-sm text-slate-900 dark:text-slate-50">
+                Relay URL:&nbsp;&nbsp;
+              </span>
+              <CopyText value={WEB_SOCKET_RELAY_URL} />
+            </div>
           </div>
         </Header>
 
@@ -199,9 +264,9 @@ export default function App() {
           <div className="grid grid-cols-1 md:grid-cols-5 xl:grid-cols-3 gap-6 sm:gap-8">
             <Card
               className="order-last xl:order-first md:col-span-5 xl:col-span-1"
-              heading="Connect your Nostr client"
+              heading="Get started"
             >
-              <ConnectClient relayPort={relayPort} />
+              <ConnectClient relayPort={PORT} />
             </Card>
 
             <Card
@@ -249,6 +314,22 @@ export default function App() {
             </>
           }
         />
+        {showModal && (
+          <div
+            ref={setPopperElement}
+            style={styles.popper}
+            {...attributes.popper}
+          >
+            <PublicRelaysModal
+              onClose={() => {
+                if (isPreventModalClose) return;
+                setShowModal(false);
+              }}
+              isPreventModalClose={isPreventModalClose}
+              setIsPreventModalClose={setIsPreventModalClose}
+            />
+          </div>
+        )}
       </div>
     </Layout>
   );

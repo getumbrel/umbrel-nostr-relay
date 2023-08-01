@@ -10,9 +10,14 @@
 	@nostr {
 		header Accept application/nostr+json
 	}
+
+	@relayproxy {
+    path /relay-proxy/*
+  }
 	
 	reverse_proxy @websockets {$RELAY_HOST}:{$RELAY_PORT}
 	reverse_proxy @nostr {$RELAY_HOST}:{$RELAY_PORT}
+	reverse_proxy @relayproxy {$RELAY_PROXY_HOST}:{$RELAY_PROXY_PORT}
 	
 	file_server
 

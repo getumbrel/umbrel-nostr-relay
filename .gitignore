@@ -1,31 +1,35 @@
 # dependencies
-/node_modules
-/.pnp
-.pnp.js
+**/node_modules
+ui/.pnp
+ui/.pnp.js
 
 # testing
-/coverage
+ui/coverage
 
 # next.js
-/.next/
-/out/
+ui/.next/
+ui/out/
 
 # production
-/build
-
-# misc
-.DS_Store
-*.pem
-.todo
+ui/build
 
 # debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
+ui/npm-debug.log*
+ui/yarn-debug.log*
+ui/yarn-error.log*
+ui/.pnpm-debug.log*
 
 # local env files
-.env*.local
+ui/.env*.local
 
 # vercel
-.vercel
+ui/.vercel
+
+# ignore relay-proxy app-specific data
+data/relay-proxy/*.json
+relay-proxy/data
+
+# misc
+*.DS_Store
+*.pem
+*.todo

@@ -1,6 +1,8 @@
 import express from "express";
 import asyncHandler from "express-async-handler";
 
+import { getLatestEvents, getLatestKind1 } from "./widgets.js";
+
 const router = express.Router();
 
 router.get('/', (request, response) => {
@@ -28,5 +30,19 @@ router.delete("/identifier", asyncHandler(async (request, response) => {
 
   response.json({ success: true });
 }));
+
+// TODO: consider moving widget routes to a separate file/router
+router.get("/widgets/latest-events", asyncHandler(async (request, response) => {
+  const widgetData = getLatestEvents();
+
+  response.json(widgetData);
+}));
+
+router.get("/widgets/latest-kind1", asyncHandler(async (request, response) => {
+  const widgetData = getLatestKind1();
+
+  response.json(widgetData);
+}
+));
 
 export const routes = router;

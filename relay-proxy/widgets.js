@@ -99,7 +99,7 @@ export function getLatestEvents() {
 
   // Return the latest 5 events as well as the total count of events (999+ if over 999 events)
   const limit = 5;
-  const count = events.length > 999 ? "999+" : events.length;
+  const count = events.length > 999 ? "999+" : events.length.toString();
 
   const getEventAction = (event) => {
     const kind = supportedEventKinds[event.kind] || supportedEventKinds.other;
@@ -114,6 +114,7 @@ export function getLatestEvents() {
   const widgetData = {
     type: "list-emoji",
     link: "",
+    refresh: "30s",
     count,
     items: actions
   };
@@ -151,6 +152,7 @@ export function getLatestKind1() {
   const widgetData = {
     type: "list",
     link: "",
+    refresh: "30s",
     items: notifications
   };
 

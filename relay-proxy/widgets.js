@@ -114,7 +114,7 @@ export function getLatestEvents() {
   const widgetData = {
     type: "list-emoji",
     link: "",
-    refresh: "30s",
+    refresh: "10s",
     count,
     items: actions
   };
@@ -138,7 +138,7 @@ export function getLatestKind1() {
       text: event.content,
       // textSub: moment(event.created_at * 1000).format('h:mm a · MMM D, YYYY')
       // TODO: figure out how to display this since the frontend is not formatting to the user's timezone
-      textSub: moment(event.created_at * 1000).format('HH:mm MMM DD, YYYY')
+      subtext: moment(event.created_at * 1000).format('HH:mm MMM DD, YYYY')
     };
   };
 
@@ -152,7 +152,7 @@ export function getLatestKind1() {
   const widgetData = {
     type: "list",
     link: "",
-    refresh: "30s",
+    refresh: "10s",
     items: notifications
   };
 

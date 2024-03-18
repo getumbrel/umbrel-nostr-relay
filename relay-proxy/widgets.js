@@ -114,7 +114,7 @@ export function getLatestEvents() {
   const widgetData = {
     type: "list-emoji",
     link: "",
-    refresh: "10s",
+    refresh: "5s",
     count,
     items: actions
   };
@@ -152,7 +152,7 @@ export function getLatestKind1() {
   const widgetData = {
     type: "list",
     link: "",
-    refresh: "10s",
+    refresh: "5s",
     items: notifications
   };
 

@@ -6,7 +6,7 @@ import RelayManager from "./RelayManager.js";
 
 const app = express();
 const server = createServer(app);
-const port = 80;
+const port = process.env.RELAY_PROXY_PORT || 80;
 
 app.use(express.json());
 

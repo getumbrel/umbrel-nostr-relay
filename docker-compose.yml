@@ -2,7 +2,7 @@ version: "3.7"
 
 services:
   web:
-    # image: getumbrel/umbrel-nostr-relay
+    # image: ghcr.io/getumbrel/umbrel-nostr-relay:v1.2.1
     build: ./ui
     user: "1000:1000"
     restart: on-failure
@@ -15,7 +15,7 @@ services:
       - 3000:3000
 
   relay:
-    image: getumbrel/nostr-rs-relay:0.10.0-v1.2.0
+    image: ghcr.io/getumbrel/nostr-rs-relay:0.10.0-v1.2.1
     user: "1000:1000"
     restart: on-failure
     volumes:
@@ -23,7 +23,7 @@ services:
       - ${PWD}/data/relay/db:/app/db
 
   relay-proxy:
-    # image: getumbrel/umbrel-nostr-relay-proxy
+    # image: ghcr.io/getumbrel/umbrel-nostr-relay-proxy:v1.2.1
     build: ./relay-proxy
     user: "1000:1000"
     restart: on-failure

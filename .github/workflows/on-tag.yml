@@ -1,4 +1,4 @@
-name: Build and publish Docker image on tag
+name: Build and publish Nostr images
 
 on:
   push:
@@ -7,6 +7,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: nostr-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   test:
@@ -29,9 +33,13 @@ jobs:
 
   build:
     needs: test
-    name: Build Docker image
-    runs-on: ubuntu-24.04
+    name: Build ${{ matrix.service.name }} (${{ matrix.platform.arch }})
+    runs-on: ${{ matrix.platform.runner }}
+    permissions:
+      contents: read
+      packages: write
     strategy:
+      fail-fast: false
       matrix:
         service:
           - directory: 'ui'
@@ -40,18 +48,22 @@ jobs:
             name: 'umbrel-nostr-relay-proxy'
           - directory: 'engine'
             name: 'nostr-rs-relay'
+        platform:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     env:
-      IMAGE_NAME: ${{ matrix.service.name }}
+      IMAGE: ghcr.io/getumbrel/${{ matrix.service.name }}
       IMAGE_TAG: ${{ matrix.service.name == 'nostr-rs-relay' && format('0.10.0-{0}', github.ref_name) || github.ref_name }}
-      # CI is private; images are published to the existing public Docker Hub repositories.
-      DOCKER_HUB_USER: getumbrel
+      ARCH: ${{ matrix.platform.arch }}
     steps:
-
-      - name: Login to Docker Hub
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout project
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -61,19 +73,50 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: getumbrel/docker-nostr-rs-relay
-          ref: 697fa49332f7923a6afcc28011a9c55cac57c9d9
+          ref: 99169180071dabb0c843d6a2363ba13506fa1110
           path: engine
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
 
       - name: Setup Docker buildx action
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
-      - name: Run Docker buildx
+      - name: Build and push native image
         working-directory: ${{ matrix.service.directory }}
         run: |
           docker buildx build \
-          --tag "$DOCKER_HUB_USER/$IMAGE_NAME:$IMAGE_TAG" \
-          --platform linux/amd64,linux/arm64 \
-          --push .
+            --tag "$IMAGE:$IMAGE_TAG-$ARCH" \
+            --platform "linux/$ARCH" \
+            --push .
+
+  publish:
+    needs: build
+    name: Publish ${{ matrix.image }} manifest
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [umbrel-nostr-relay, umbrel-nostr-relay-proxy, nostr-rs-relay]
+    env:
+      IMAGE: ghcr.io/getumbrel/${{ matrix.image }}
+      IMAGE_TAG: ${{ matrix.image == 'nostr-rs-relay' && format('0.10.0-{0}', github.ref_name) || github.ref_name }}
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Docker buildx action
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Publish and verify both architectures
+        run: |
+          docker buildx imagetools create \
+            --tag "$IMAGE:$IMAGE_TAG" \
+            "$IMAGE:$IMAGE_TAG-amd64" \
+            "$IMAGE:$IMAGE_TAG-arm64"
+          docker buildx imagetools inspect --raw "$IMAGE:$IMAGE_TAG" \
+            | jq --exit-status '[.manifests[].platform | select(.os == "linux") | .architecture] | sort == ["amd64", "arm64"]'
+          docker buildx imagetools inspect "$IMAGE:$IMAGE_TAG" >> "$GITHUB_STEP_SUMMARY"

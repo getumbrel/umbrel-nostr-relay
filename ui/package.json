@@ -4,7 +4,7 @@
   "private": true,
   "dependencies": {
     "@popperjs/core": "^2.11.8",
-    "axios": "^1.4.0",
+    "axios": "^1.20.0",
     "framer-motion": "^8.5.5",
     "moment": "^2.29.4",
     "react": "^18.2.0",

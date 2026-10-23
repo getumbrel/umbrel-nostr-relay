@@ -1,4 +1,4 @@
-import WebSocket from 'ws';
+import ReconnectingSocket from "./ReconnectingSocket.js";
 import moment from 'moment';
 
 import { LOCAL_RELAY_URL } from "./constants.js";
@@ -10,6 +10,7 @@ function getEventsStore() {
 }
 
 function insertSortedEvent(event) {
+  if (events.some(existing => existing.id === event.id)) return;
   const { created_at } = event;
   
   // Find the correct position for the new event
@@ -41,7 +42,7 @@ const supportedEventKinds = {
     showContent: true,
   },
   2: {
-    icon: "📶",
+    icon: "📡",
     name: "Relay Update",
   },
   3: {
@@ -83,6 +84,42 @@ const supportedEventKinds = {
   44: {
     icon: "🙊",
     name: "Muted User",
+  },
+  16: {
+    icon: "🔁",
+    name: "Repost",
+  },
+  20: {
+    icon: "🖼️",
+    name: "Photo",
+  },
+  21: {
+    icon: "🎬",
+    name: "Video",
+  },
+  22: {
+    icon: "🎞️",
+    name: "Short Video",
+  },
+  1068: {
+    icon: "📊",
+    name: "Poll",
+  },
+  1111: {
+    icon: "💬",
+    name: "Comment",
+  },
+  9735: {
+    icon: "⚡",
+    name: "Zap Receipt",
+  },
+  30023: {
+    icon: "📰",
+    name: "Article",
+  },
+  10002: {
+    icon: "📡",
+    name: "Relay Update",
   },
   22242: {
     icon: "🔓",
@@ -159,36 +196,15 @@ export function getLatestKind1() {
   return widgetData;
 }
 
-// WebSocket connection
-function openSocket() {
-  const socket = new WebSocket(LOCAL_RELAY_URL);
-
-  // Generate a random subscription ID
-  const subscriptionID =
-    Math.random().toString(36).substring(2, 15) +
-    Math.random().toString(36).substring(2, 15);
-
-  // Handle websocket connection open event
-  socket.onopen = () => {
-    // Request latest 1000 events
-    socket.send(JSON.stringify(["REQ", subscriptionID, { limit: 1000 }]));
-  };
-
-  // Handle websocket message event
-  socket.onmessage = (message) => {
-    // Parse the message data
-    const data = JSON.parse(message.data);
-
-    if (!data.length) {
-      console.error("Error: No data length", data);
-      return;
-    }
-
-    if (data[0] === "EVENT") {
-      const { id, kind, created_at, content } = data[2];
-      insertSortedEvent({ id, kind, created_at, content });
-    }
-  };
-}
-
-openSocket();
+// Re-query on reconnect and deduplicate replayed events by ID.
+export const widgetSocket = new ReconnectingSocket(LOCAL_RELAY_URL, {
+  onOpen: socket => socket.send(["REQ", "widgets", { limit: 1000 }]),
+  onMessage: data => {
+    if (data[0] !== "EVENT" || data[1] !== "widgets") return;
+    const event = data[2];
+    if (!event || typeof event.id !== "string" || !Number.isInteger(event.created_at) ||
+      !Number.isInteger(event.kind) || typeof event.content !== "string") return;
+    const { id, kind, created_at, content } = event;
+    insertSortedEvent({ id, kind, created_at, content });
+  },
+});

@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { subscribeToRelay } from "./subscribeToRelay";
 import { usePopper } from "react-popper";
 
 import Layout from "./components/Layout";
@@ -32,7 +33,7 @@ const supportedEventKinds = {
     showContent: true,
   },
   2: {
-    icon: "📶",
+    icon: "📡",
     name: "Relay Update",
   },
   3: {
@@ -79,6 +80,42 @@ const supportedEventKinds = {
   44: {
     icon: "🙊",
     name: "Muted User",
+  },
+  16: {
+    icon: "🔁",
+    name: "Repost",
+  },
+  20: {
+    icon: "🖼️",
+    name: "Photo",
+  },
+  21: {
+    icon: "🎬",
+    name: "Video",
+  },
+  22: {
+    icon: "🎞️",
+    name: "Short Video",
+  },
+  1068: {
+    icon: "📊",
+    name: "Poll",
+  },
+  1111: {
+    icon: "💬",
+    name: "Comment",
+  },
+  9735: {
+    icon: "⚡",
+    name: "Zap Receipt",
+  },
+  30023: {
+    icon: "📰",
+    name: "Article",
+  },
+  10002: {
+    icon: "📡",
+    name: "Relay Update",
   },
   22242: {
     icon: "🔓",
@@ -129,82 +166,55 @@ export default function App() {
   const updatePopper = useRef(update);
 
   useEffect(() => {
-    // Create websocket connection
-    const socket = new WebSocket(WEB_SOCKET_RELAY_URL);
-
-    // Generate a random subscription ID
-    const subscriptionID =
-      Math.random().toString(36).substring(2, 15) +
-      Math.random().toString(36).substring(2, 15);
-
-    // Handle websocket connection open event
-    socket.onopen = () => {
-      setIsConnected(true);
-      // Reset events array to clear previous events
-      setEvents([]);
-      // Request latest 3000 events
-      socket.send(JSON.stringify(["REQ", subscriptionID, { limit: 3000 }]));
-    };
-
-    // Handle websocket message event
-    socket.onmessage = (message) => {
-      // Parse the message data
-      const data = JSON.parse(message.data);
-
-      if (!data.length) {
-        console.error("Error: No data length", data);
-        return;
-      }
-
-      // Check if data is End of Stored Events Notice
-      // https://github.com/nostr-protocol/nips/blob/master/15.md
-      if (data[0] === "EOSE") {
-        setHasFetchedAllEvents(true);
-        return;
-      }
-
-      // If the data is of type EVENT
-      if (data[0] === "EVENT") {
-        // Add the event to the events array
-        setEvents((prevEvents) => {
-          // Extract the relevant data from the event
-          const { id, kind, created_at, content } = data[2];
-          return [{ id, kind, created_at, content }, ...prevEvents];
-        });
-      }
-    };
-
-    // Handle websocket error
-    socket.onerror = () => {
-      setIsConnected(false);
-    };
-
-    // Handle websocket close
-    socket.onclose = () => {
-      setIsConnected(false);
-    };
-
-    // get nostr-rs-relay version
-    fetch(HTTP_RELAY_URL, {
-      method: "GET",
-      headers: {
-        Accept: "application/nostr+json",
+    const controller = new AbortController();
+    const subscriptionID = "dashboard";
+    const disconnect = subscribeToRelay(WEB_SOCKET_RELAY_URL, {
+      onOpen: (socket) => {
+        setIsConnected(true);
+        setHasFetchedAllEvents(false);
+        setEvents([]);
+        socket.send(JSON.stringify(["REQ", subscriptionID, { limit: 3000 }]));
+        fetch(HTTP_RELAY_URL, {
+          headers: { Accept: "application/nostr+json" },
+          signal: controller.signal,
+        })
+          .then(async (response) => {
+            if (response.ok) setRelayInformationDocument(await response.json());
+          })
+          .catch((error) => {
+            if (error.name !== "AbortError")
+              console.error("Could not load relay information");
+          });
       },
-    }).then(async (response) => {
-      if (response.ok) {
-        const relayInfoDoc = await response.json();
-        setRelayInformationDocument(relayInfoDoc);
-      }
+      onMessage: (data) => {
+        if (data[1] !== subscriptionID) return;
+        if (data[0] === "EOSE") {
+          setHasFetchedAllEvents(true);
+        } else if (data[0] === "EVENT") {
+          const event = data[2];
+          if (
+            !event ||
+            typeof event.id !== "string" ||
+            !Number.isInteger(event.created_at) ||
+            !Number.isInteger(event.kind) ||
+            typeof event.content !== "string"
+          )
+            return;
+          const { id, kind, created_at, content } = event;
+          setEvents((previous) =>
+            previous.some((item) => item.id === id)
+              ? previous
+              : [{ id, kind, created_at, content }, ...previous]
+                  .sort((a, b) => b.created_at - a.created_at)
+                  .slice(0, 3000),
+          );
+        }
+      },
+      onClose: () => setIsConnected(false),
     });
-
-    // Cleanup function to run on component unmount
     return () => {
-      // Check if the websocket is open
-      if (socket.readyState === WebSocket.OPEN) {
-        // Stop previous subscription and close the websocket
-        socket.send(JSON.stringify(["CLOSE", subscriptionID]));
-        socket.close();
-      }
+      controller.abort();
+      disconnect();
     };
   }, []);
 

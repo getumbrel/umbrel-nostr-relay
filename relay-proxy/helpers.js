@@ -39,6 +39,7 @@ export async function readIdentifierFromFile() {
 }
 
 export async function writeIdentifierToFile(identifier) {
+  if (typeof identifier !== "string" || !identifier.trim()) throw new Error("Enter a NIP-05 or npub address");
   const fileContents = await readJsonFile(STORE);
   if (fileContents?.identifier !== undefined) {
     throw new Error("NIP-05 or npub address is already set");
@@ -77,11 +78,13 @@ export async function getPublicKeyAndRelaysFromIdentifier(identifier) {
   // we return the hex-formatted pubkey and relays from the nip05 json
   } else {
     const formattedIdentifer = formatNip05Identifier(identifier);
-    ({ pubkey, relays } = await nostr.nip05.queryProfile(formattedIdentifer));
+    const profile = await nostr.nip05.queryProfile(formattedIdentifer);
+    if (!profile) throw new Error("Could not resolve NIP-05 identifier");
+    ({ pubkey, relays } = profile);
   }
 
   // check if nip05 has relays. If not, we use the default relays
-  relays = (relays && relays.length > 0) ? relays : defaultNip19Relays;
+  relays = (Array.isArray(relays) && relays.length > 0) ? relays : defaultNip19Relays;
 
   return { pubkey, relays };
 }

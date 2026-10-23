@@ -73,7 +73,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: getumbrel/docker-nostr-rs-relay
-          ref: 99169180071dabb0c843d6a2363ba13506fa1110
+          ref: 66b5a626c782fc57c6c415d235b06b0c246cfd30
           path: engine
 
       - name: Setup Docker buildx action

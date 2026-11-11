@@ -24,7 +24,9 @@ router.post("/identifier", asyncHandler(async (request, response) => {
 
 router.delete("/identifier", asyncHandler(async (request, response) => {
   const relayManager = request.app.get("relayManager");
-  await relayManager.removeIdentifier();
+  // the identifier to stop syncing; if none is given, all accounts are removed
+  const identifier = request.body?.identifier;
+  await relayManager.removeIdentifier(identifier);
 
   response.json({ success: true });
 }));

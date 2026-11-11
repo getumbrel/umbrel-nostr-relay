@@ -32,18 +32,25 @@ export async function deleteStoreFile() {
   }
 }
 
-export async function readIdentifierFromFile() {
+// Returns the list of NIP-05/npub identifiers to sync, or an empty array if none are set.
+// Older versions stored a single identifier as { identifier }, which we read as a list of one.
+export async function readIdentifiersFromFile() {
   const data = await readJsonFile(STORE);
-
-  return data;
+  if (Array.isArray(data?.identifiers)) return data.identifiers;
+  if (typeof data?.identifier === "string") return [data.identifier];
+  return [];
 }
 
-export async function writeIdentifierToFile(identifier) {
-  const fileContents = await readJsonFile(STORE);
-  if (fileContents?.identifier !== undefined) {
-    throw new Error("NIP-05 or npub address is already set");
+export async function writeIdentifiersToFile(identifiers) {
+  if (identifiers.length === 0) {
+    await deleteStoreFile();
+    return;
   }
+  await writeJsonFile(STORE, { identifiers });
+}
 
+// Throws an error with a user-facing message if the identifier is not a valid npub or NIP-05 address
+export async function validateIdentifier(identifier) {
   // if starts with npub then it is a nip19
   if (identifier.startsWith("npub")) {
     try {
@@ -59,8 +66,6 @@ export async function writeIdentifierToFile(identifier) {
       throw new Error('Invalid NIP-05. If you were trying to enter an npub address, make sure it starts with "npub"');
     }
   }
-
-  await writeJsonFile(STORE, { identifier });
 }
 
 export async function getPublicKeyAndRelaysFromIdentifier(identifier) {
@@ -77,7 +82,11 @@ export async function getPublicKeyAndRelaysFromIdentifier(identifier) {
   // we return the hex-formatted pubkey and relays from the nip05 json
   } else {
     const formattedIdentifer = formatNip05Identifier(identifier);
-    ({ pubkey, relays } = await nostr.nip05.queryProfile(formattedIdentifer));
+    const profile = await nostr.nip05.queryProfile(formattedIdentifer);
+    if (profile === null) {
+      throw new Error(`Could not look up NIP-05 address ${identifier}`);
+    }
+    ({ pubkey, relays } = profile);
   }
 
   // check if nip05 has relays. If not, we use the default relays

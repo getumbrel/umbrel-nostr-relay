@@ -2,18 +2,26 @@ import { relayInit } from "nostr-tools";
 import "websocket-polyfill"; // polyfill for relayInit in nodejs
 import pRetry from "p-retry";
 
-import { readIdentifierFromFile, writeIdentifierToFile, deleteStoreFile, getPublicKeyAndRelaysFromIdentifier } from "./helpers.js";
+import {
+  readIdentifiersFromFile,
+  writeIdentifiersToFile,
+  validateIdentifier,
+  getPublicKeyAndRelaysFromIdentifier,
+} from "./helpers.js";
 import { LOCAL_RELAY_URL, DISCOVERY_STATUS } from "./constants.js";
+
+const RECONNECT_DELAY_MS = 10 * 1000;
 
 /*
 Relay discovery and connection logic is as follows:
 1. Await connection to local nostr-rs-relay
-2. Connect to relays from NIP-05, or from a list of popular relays if only an npub is provided
+2. For each account (NIP-05 or npub) the user has added, connect to relays from its NIP-05, or from a list of popular relays if only an npub is provided
   - retry connection attempts indefinitely, with exponential backoff to max timeout of 1 hour
-3. Subscribe to events
+3. Subscribe to events from all accounts on every connected relay
+  - if a connected relay disconnects, reconnect and resubscribe
   - Publish events to local nostr-rs-relay
   - If a Kind 3 Contact List event is received, connect to any new relays in that list that we are not already connected to and subscribe to events from those relays
-  - Periodically close any relays that are not in the most recent Kind 3 Contact List Event
+  - Periodically close any relays that are not in the most recent Kind 3 Contact List Event of any account
 */
 
 class RelayManager {
@@ -23,17 +31,30 @@ class RelayManager {
   }
 
   resetState() {
-    this.relays = {};
-    // latestRelays tracks relays from the most recent Kind 3 Contact List Event (or default relays if no Kind 3 Contact List Events have been received)
-    this.latestRelays = null; // { relays, timestamp }
-    this.identifier = null; // store to avoid having to read from file for getConnectionStatus
-    this.pubkey = null; // hex formatted pubkey
+    this.relays = {}; // { [url]: relay }
+    this.subscriptions = {}; // { [url]: sub }
+    // accounts tracks each identifier the user is syncing, keyed by the identifier as entered:
+    // { [identifier]: { pubkey, latestRelays, firstEventReceived } }
+    // latestRelays tracks relays from the account's most recent Kind 3 Contact List Event
+    // (or default relays if no Kind 3 Contact List Events have been received): { relays: [url], timestamp }
+    this.accounts = {};
+    // identifiers saved in the store, including any whose relays are still being looked up
+    this.savedIdentifiers = [];
     this.status = DISCOVERY_STATUS.IDLE;
     this.firstEventReceived = false;
     if (this.cleanUpRelaysInterval) {
       clearInterval(this.cleanUpRelaysInterval);
       this.cleanUpRelaysInterval = null;
     }
+  }
+
+  // hex formatted pubkeys of all accounts being synced
+  get pubkeys() {
+    return Object.values(this.accounts).map(account => account.pubkey);
+  }
+
+  getAccountByPubkey(pubkey) {
+    return Object.values(this.accounts).find(account => account.pubkey === pubkey);
   }
 
   // ===============================
@@ -43,13 +64,26 @@ class RelayManager {
   async establishRelayConnections() {
     // We await successful connection to local nostr-rs-relay or else events from public relays will not be published to the local relay
     try {
-      this.localRelay = await this.initializeRelay(LOCAL_RELAY_URL, { isPrivate: true });
+      await this.connectToLocalRelay();
     } catch (error) {
       console.log(error?.message); // thrown by initializeRelay after all retry attempts have failed
       return;
     }
-    // Connect to public relays discovered from NIP-05 or npub
+    // Connect to public relays discovered from each saved NIP-05 or npub
     this.discoverAndConnectToRelays();
+  }
+
+  async connectToLocalRelay() {
+    const localRelay = await this.initializeRelay(LOCAL_RELAY_URL, { isPrivate: true });
+    this.localRelay = localRelay;
+    // nostr-tools does not reconnect by itself, so we reconnect if the local relay restarts
+    localRelay.on("disconnect", () => {
+      if (this.localRelay !== localRelay) return;
+      console.log(`Disconnected from local relay. Reconnecting in ${RECONNECT_DELAY_MS / 1000} seconds.`);
+      setTimeout(() => {
+        this.connectToLocalRelay().catch(error => console.log(error?.message));
+      }, RECONNECT_DELAY_MS);
+    });
   }
 
   async initializeRelay(url, options = {}) {
@@ -95,8 +129,8 @@ class RelayManager {
           console.log (`Attempt ${error.attemptNumber} to connect to ${relay.url} failed.`);
 
           // we do not abort for our local relay
-          if (!isPrivate && !this.relays[url]) {
-            abortController.abort(`Additional connection attempts to ${relay.url} aborted because relay is no longer in user's Kind 3 Contact List.`);
+          if (!isPrivate && this.relays[url] !== relay) {
+            abortController.abort(`Additional connection attempts to ${relay.url} aborted because relay is no longer in any account's Kind 3 Contact List.`);
           }
 
         },
@@ -110,31 +144,49 @@ class RelayManager {
   }
 
   async discoverAndConnectToRelays() {
-    if (this.cleanUpRelaysInterval) {
-      clearInterval(this.cleanUpRelaysInterval);
-    }
-
-    const identifierData = await readIdentifierFromFile();
-    // we return early if there is no identifier set
-    if (!identifierData) return;
-
-    this.identifier = identifierData.identifier;
-    console.log(`NIP-05/NIP-19 Identifier: ${this.identifier}`);
+    const identifiers = await readIdentifiersFromFile();
+    this.savedIdentifiers = identifiers;
+    // we return early if there are no identifiers set
+    if (identifiers.length === 0) return;
 
     this.status = DISCOVERY_STATUS.DISCOVERING_RELAYS;
 
-    const { pubkey, relays } = await getPublicKeyAndRelaysFromIdentifier(this.identifier);
-    this.pubkey = pubkey;
-    this.latestRelays = { relays, timestamp: 0 };
+    for (const identifier of identifiers) {
+      // We keep retrying in the background if a NIP-05 lookup fails (e.g. no internet yet), so one account cannot block the others
+      pRetry(() => this.loadAccount(identifier), {
+        forever: true,
+        maxTimeout: 1000 * 60 * 60,
+        onFailedAttempt: error => {
+          console.log(`Attempt ${error.attemptNumber} to look up ${identifier} failed: ${error.message}`);
+        },
+      }).catch(error => console.error(error?.message));
+    }
 
+    this.startCleanUpInterval();
+  }
+
+  // Resolves an identifier's pubkey and relays, adds it to this.accounts and connects to its relays
+  async loadAccount(identifier) {
+    // the account may already be loaded if it was added while we were connecting to the local relay
+    if (this.accounts[identifier]) return this.accounts[identifier];
+
+    console.log(`NIP-05/NIP-19 Identifier: ${identifier}`);
+    const { pubkey, relays } = await getPublicKeyAndRelaysFromIdentifier(identifier);
+
+    // the user may have removed this account while we were looking it up
+    const identifiers = await readIdentifiersFromFile();
+    if (!identifiers.includes(identifier)) return null;
+
+    const account = { pubkey, latestRelays: { relays, timestamp: 0 }, firstEventReceived: false };
+    this.accounts[identifier] = account;
+
+    // relays that are already connected need to be resubscribed so they also send this account's events
+    this.resubscribeAllRelays();
     for (const url of relays) {
       this.connectAndSubscribeToRelay(url);
     }
 
-    // Clean up relays that are not in the most recent Kind 3 Contact List Event every hour
-    this.cleanUpRelaysInterval = setInterval(() => {
-      this.removeOutdatedRelays();
-    }, 60 * 60 * 1000);
+    return account;
   }
 
   async connectAndSubscribeToRelay(url) {
@@ -150,12 +202,62 @@ class RelayManager {
 
     try {
       const relay = await this.initializeRelay(url);
-      if (relay) {
-        const sub = relay.sub([{ authors: [this.pubkey] }]);
-        sub.on('event', event => this.handleEvent(event, relay));
+      // the relay may have been closed while we were connecting
+      if (relay && this.relays[url] === relay) {
+        relay.on("disconnect", () => this.handleRelayDisconnect(url, relay));
+        this.subscribeToRelay(url, relay);
       }
     } catch (error) {
       console.error(error?.message);
+    }
+  }
+
+  // Public relays often drop idle connections, and nostr-tools does not reconnect by itself.
+  // We replace the relay with a new connection and subscription, unless it was closed on purpose.
+  handleRelayDisconnect(url, relay) {
+    if (this.relays[url] !== relay) return;
+    console.log(`Disconnected from ${url}. Reconnecting in ${RECONNECT_DELAY_MS / 1000} seconds.`);
+    delete this.relays[url];
+    delete this.subscriptions[url];
+    setTimeout(() => {
+      // only reconnect if an account still uses this relay and nothing else has reconnected it
+      const stillWanted = Object.values(this.accounts).some(account => account.latestRelays.relays.includes(url));
+      if (stillWanted) {
+        this.connectAndSubscribeToRelay(url);
+      }
+    }, RECONNECT_DELAY_MS);
+  }
+
+  // Subscribes to events from all accounts, replacing any existing subscription on this relay
+  subscribeToRelay(url, relay) {
+    this.unsubscribeFromRelay(url);
+
+    const pubkeys = this.pubkeys;
+    if (pubkeys.length === 0) return;
+
+    const sub = relay.sub([{ authors: pubkeys }]);
+    sub.on('event', event => this.handleEvent(event, relay));
+    this.subscriptions[url] = sub;
+  }
+
+  unsubscribeFromRelay(url) {
+    const sub = this.subscriptions[url];
+    if (!sub) return;
+    try {
+      sub.unsub();
+    } catch (error) {
+      console.log(`Error unsubscribing from ${url}`);
+    }
+    delete this.subscriptions[url];
+  }
+
+  // Called when accounts are added or removed, so every connected relay sends events for the current list of accounts.
+  // Relays that are still connecting are skipped; they subscribe with the current list once connected.
+  resubscribeAllRelays() {
+    for (const [url, relay] of Object.entries(this.relays)) {
+      if (this.subscriptions[url]) {
+        this.subscribeToRelay(url, relay);
+      }
     }
   }
 
@@ -173,13 +275,19 @@ class RelayManager {
       this.firstEventReceived = true;
     }
 
+    const account = this.getAccountByPubkey(event.pubkey);
+    if (account && !account.firstEventReceived) {
+      account.firstEventReceived = true;
+    }
+
     // If a Kind 3 Contact List event is received with a newer created_at timestamp, we connect to any new relays in that list
     // that we are not already connected to and subscribe to events from those relays
-    if (event.kind === 3) {
-      if (this.latestRelays === null || event.created_at > this.latestRelays.timestamp) {
+    if (event.kind === 3 && account && event.created_at > account.latestRelays.timestamp) {
+      const newRelays = parseKind3Relays(event.content);
+      // Many clients now publish relays in a Kind 10002 event and leave the Kind 3 content empty, in which case we keep the current relays
+      if (newRelays.length > 0) {
         console.log(`A more recent Kind 3 event was received from ${relay.url} with date: ${event.created_at}`);
-        this.latestRelays = { relays: event.content, timestamp: event.created_at };
-        const newRelays = Object.keys(JSON.parse(event.content));
+        account.latestRelays = { relays: newRelays, timestamp: event.created_at };
         for (const url of newRelays) {
           this.connectAndSubscribeToRelay(url);
         }
@@ -197,9 +305,19 @@ class RelayManager {
   // Relay Management Methods
   // =====================
 
+  startCleanUpInterval() {
+    if (this.cleanUpRelaysInterval) return;
+    // Clean up relays that are not in the most recent Kind 3 Contact List Event of any account every hour
+    this.cleanUpRelaysInterval = setInterval(() => {
+      this.removeOutdatedRelays();
+    }, 60 * 60 * 1000);
+  }
+
   removeOutdatedRelays() {
-    const latestRelays = this.latestRelays ? Object.keys(JSON.parse(this.latestRelays.relays)) : [];
-    const relaysToRemove = Object.keys(this.relays).filter(url => !latestRelays.includes(url));
+    const latestRelays = new Set(
+      Object.values(this.accounts).flatMap(account => account.latestRelays.relays),
+    );
+    const relaysToRemove = Object.keys(this.relays).filter(url => !latestRelays.has(url));
     if (relaysToRemove.length > 0) {
       console.log(`Removing outdated relays: ${relaysToRemove}`);
     }
@@ -211,9 +329,11 @@ class RelayManager {
 
   closeRelay(url) {
     const relay = this.relays[url];
+    this.unsubscribeFromRelay(url);
+    // removed before closing so handleRelayDisconnect does not reconnect it
+    delete this.relays[url];
     try {
       relay.close();
-      delete this.relays[url];
       console.log(`${url} connection closed`);
     } catch (error) {
       console.log(`Error closing ${url}`);
@@ -221,7 +341,7 @@ class RelayManager {
   }
 
   getConnectionStatus() {
-    /* 
+    /*
     'web socket readyState values are:
       - 0: CONNECTING
       - 1: OPEN
@@ -241,7 +361,12 @@ class RelayManager {
       }
     }).filter(state => state !== null);
 
-    return { identifier: this.identifier, status: this.status, firstEventReceived: this.firstEventReceived, relayStates };
+    const identifiers = this.savedIdentifiers.map(identifier => ({
+      identifier,
+      firstEventReceived: this.accounts[identifier]?.firstEventReceived || false,
+    }));
+
+    return { identifiers, status: this.status, firstEventReceived: this.firstEventReceived, relayStates };
   }
 
   // ==========================
@@ -249,17 +374,67 @@ class RelayManager {
   // ==========================
 
   async addIdentifier(identifier) {
-    await writeIdentifierToFile(identifier);
-    this.discoverAndConnectToRelays();
+    identifier = (identifier || "").trim();
+    if (!identifier) {
+      throw new Error("Enter a NIP-05 or npub address");
+    }
+
+    const identifiers = await readIdentifiersFromFile();
+    if (identifiers.includes(identifier)) {
+      throw new Error(`${identifier} is already being synced`);
+    }
+
+    await validateIdentifier(identifier);
+
+    // the same account could be entered as both its NIP-05 and its npub
+    const { pubkey } = await getPublicKeyAndRelaysFromIdentifier(identifier);
+    if (this.getAccountByPubkey(pubkey)) {
+      throw new Error("This account is already being synced");
+    }
+
+    await writeIdentifiersToFile([...identifiers, identifier]);
+    this.savedIdentifiers = [...identifiers, identifier];
+
+    // If we are still connecting to the local relay, the account is loaded with the others once connected
+    if (!this.localRelay) return;
+
+    this.status = DISCOVERY_STATUS.DISCOVERING_RELAYS;
+    await this.loadAccount(identifier);
+    this.startCleanUpInterval();
   }
 
-  async removeIdentifier() {
-    await deleteStoreFile();
-    for (const url of Object.keys(this.relays)) {
-      this.closeRelay(url);
+  async removeIdentifier(identifier) {
+    const identifiers = await readIdentifiersFromFile();
+    // older clients send no identifier, which removes all accounts
+    const remaining = identifier ? identifiers.filter(id => id !== identifier) : [];
+    await writeIdentifiersToFile(remaining);
+    this.savedIdentifiers = remaining;
+
+    if (remaining.length === 0) {
+      for (const url of Object.keys(this.relays)) {
+        this.closeRelay(url);
+      }
+      this.resetState();
+      return;
     }
-    this.resetState();
+
+    delete this.accounts[identifier];
+    this.firstEventReceived = Object.values(this.accounts).some(account => account.firstEventReceived);
+    this.resubscribeAllRelays();
+    // close relays that only the removed account was using
+    this.removeOutdatedRelays();
   }
+}
+
+// Kind 3 content is a JSON object keyed by relay URL, but it may be empty or invalid
+function parseKind3Relays(content) {
+  try {
+    const relays = JSON.parse(content);
+    if (relays && typeof relays === "object" && !Array.isArray(relays)) {
+      return Object.keys(relays);
+    }
+  } catch {}
+  return [];
 }
 
 export default RelayManager;

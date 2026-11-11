@@ -31,6 +31,13 @@ export default function PublicRelaysModal({
   // sync confirmation modal state
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const timerRef = useRef();
+  // the identifier most recently added, so we can confirm when its first event arrives
+  const [pendingIdentifier, setPendingIdentifier] = useState(null);
+  // when at least one account is set, the input is hidden until "Add another account" is clicked
+  const [showAddInput, setShowAddInput] = useState(false);
+
+  const identifiers = publicRelays?.identifiers || [];
+  const hasIdentifiers = identifiers.length > 0;
 
   // When the modal is open, we prevent background scrolling and compensate for the scrollbar disappearing so the page doesn't jump
   useEffect(() => {
@@ -67,11 +74,14 @@ export default function PublicRelaysModal({
     };
   }, [onClose]);
 
-  // clear the confirmation timeout when we receive the first event from syncing public relays
+  // clear the confirmation timeout when we receive the first event for the newly added account
   // and show confirmation modal right away
   // TODO: refactor so that we are not using publicRelays object in dependency array
   useEffect(() => {
-    if (isTimerRunning && publicRelays?.firstEventReceived) {
+    const pendingAccount = publicRelays?.identifiers?.find(
+      (account) => account.identifier === pendingIdentifier,
+    );
+    if (isTimerRunning && pendingAccount?.firstEventReceived) {
       clearTimeout(timerRef.current);
       setIsTimerRunning(false);
       setIsPreventModalClose(false);
@@ -82,7 +92,7 @@ export default function PublicRelaysModal({
         />,
       );
     }
-  }, [publicRelays, isTimerRunning]);
+  }, [publicRelays, isTimerRunning, pendingIdentifier]);
 
   async function fetchPublicRelaysOnMount() {
     await fetchPublicRelays();
@@ -117,15 +127,26 @@ export default function PublicRelaysModal({
       : { icon: disconnectedRelayIcon, color: "#aa7109" };
   };
 
-  async function handleButtonClick(e, action) {
+  async function handleAddClick(e) {
     e.preventDefault();
     e.stopPropagation();
     setServerConnectionError(null);
     setIsLoading(true);
 
     // Currently all validation is done on the backend
-    await handleAction(action, inputValue);
-    setInputValue("");
+    const added = await handleAction("add", inputValue.trim());
+    if (added) {
+      setInputValue("");
+      setShowAddInput(false);
+    }
+  }
+
+  async function handleRemoveClick(e, identifier) {
+    e.preventDefault();
+    e.stopPropagation();
+    setServerConnectionError(null);
+
+    await handleAction("remove", identifier);
   }
 
   async function handleAction(action, identifier) {
@@ -139,6 +160,7 @@ export default function PublicRelaysModal({
         // don't allow modal close until the confirmation message has been displayed
         setIsPreventModalClose(true);
         setIsTimerRunning(true);
+        setPendingIdentifier(identifier);
 
         timerRef.current = setTimeout(() => {
           toast(
@@ -156,13 +178,18 @@ export default function PublicRelaysModal({
         });
       } else if (action === "remove") {
         const userConfirmation = window.confirm(
-          "Are you sure you want to stop syncing from your public relays?",
+          `Are you sure you want to stop syncing ${identifier} from your public relays?`,
         );
-        if (!userConfirmation) return;
-        await axios.delete(`${RELAY_PROXY_URL}/identifier`);
+        if (!userConfirmation) return false;
+        setIsLoading(true);
+        await axios.delete(`${RELAY_PROXY_URL}/identifier`, {
+          data: { identifier },
+        });
       }
+      return true;
     } catch (error) {
       clearTimeout(timerRef.current);
+      setIsTimerRunning(false);
       setIsPreventModalClose(false);
       setError(
         error.response?.data?.error ||
@@ -172,6 +199,7 @@ export default function PublicRelaysModal({
       errorTimeoutRef.current = setTimeout(() => {
         setError(null);
       }, 5000);
+      return false;
     } finally {
       fetchPublicRelays();
     }
@@ -181,7 +209,7 @@ export default function PublicRelaysModal({
     return (
       publicRelays !== null &&
       publicRelays.relayStates.length === 0 &&
-      publicRelays.identifier !== null &&
+      hasIdentifiers &&
       publicRelays.status !== "discovering relays"
     );
   };
@@ -204,36 +232,63 @@ export default function PublicRelaysModal({
           your private relay and Nostr client is interrupted.
         </p>
       </div>
-      <div className="flex gap-2 px-7">
-        <input
-          className="text-slate-700 dark:text-white border dark:border-white dark:border-opacity-10 rounded-md w-full px-3 bg-white dark:bg-opacity-5 focus:ring-[#6361FF] focus:ring-1 dark:focus:ring-[#264D96] dark:focus:ring-[3px] focus:border-opacity-0 outline-none"
-          type="text"
-          value={inputValue}
-          placeholder={
-            publicRelays !== null && publicRelays.identifier
-              ? publicRelays.identifier
-              : "Enter NIP-05 or npub address"
-          }
-          spellCheck="false"
-          disabled={publicRelays?.identifier}
-          onChange={(e) => setInputValue(e.target.value)}
-        />
-        {(isLoading && publicRelays.relayStates.length === 0) ||
-        isPreventModalClose ? (
-          <LoadingButton />
-        ) : publicRelays !== null && publicRelays.identifier ? (
+      {identifiers.map((account) => (
+        <div key={account.identifier} className="flex gap-2 px-7 mb-2">
+          <div
+            className="text-slate-700 dark:text-white border dark:border-white dark:border-opacity-10 rounded-md w-full px-3 py-2 bg-white dark:bg-opacity-5 text-sm truncate"
+            title={account.identifier}
+          >
+            {account.identifier}
+          </div>
           <RemoveIdentiferButton
-            onClick={(e) => handleButtonClick(e, "remove")}
+            onClick={(e) => handleRemoveClick(e, account.identifier)}
+            disabled={isPreventModalClose}
           />
-        ) : (
-          <AddIdentifierButton
-            onClick={(e) => handleButtonClick(e, "add")}
-            disabled={
-              publicRelays?.identifier || !inputValue || serverConnectionError
-            }
+        </div>
+      ))}
+      {!hasIdentifiers || showAddInput || isPreventModalClose ? (
+        <div className="flex gap-2 px-7">
+          <input
+            className="text-slate-700 dark:text-white border dark:border-white dark:border-opacity-10 rounded-md w-full px-3 bg-white dark:bg-opacity-5 focus:ring-[#6361FF] focus:ring-1 dark:focus:ring-[#264D96] dark:focus:ring-[3px] focus:border-opacity-0 outline-none"
+            type="text"
+            value={inputValue}
+            placeholder="Enter NIP-05 or npub address"
+            spellCheck="false"
+            autoFocus={hasIdentifiers}
+            disabled={isPreventModalClose}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (
+                e.key === "Enter" &&
+                inputValue.trim() &&
+                !isPreventModalClose
+              ) {
+                handleAddClick(e);
+              }
+            }}
           />
-        )}
-      </div>
+          {(isLoading && !hasIdentifiers) || isPreventModalClose ? (
+            <LoadingButton />
+          ) : (
+            <AddIdentifierButton
+              onClick={handleAddClick}
+              disabled={!inputValue.trim() || serverConnectionError}
+            />
+          )}
+        </div>
+      ) : (
+        <div className="px-7">
+          <button
+            className="text-sm text-[#6361FF] dark:text-slate-200 underline underline-offset-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowAddInput(true);
+            }}
+          >
+            + Add another account
+          </button>
+        </div>
+      )}
       {serverConnectionError && <ErrorMessage error={serverConnectionError} />}
       {error && <ErrorMessage error={error} />}
       {shouldDisplayNoRelaysMessage() && (

@@ -5,7 +5,7 @@ export default function CopyText({ value }) {
 
   async function copyText() {
     if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(value);
+      await navigator.clipboard.writeText(value);
     } else {
       let textArea = document.createElement("textarea");
       textArea.value = value;
